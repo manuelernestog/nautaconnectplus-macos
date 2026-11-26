@@ -47,6 +47,18 @@ public enum L10n {
         case refreshTimeLeft
         case discardSession
         case keepSession
+        case disconnectTimer
+        case disconnectIn
+        case cancelTimer
+        case customTimer
+        case customTimerTitle
+        case customTimerPrompt
+        case customTimerInvalid
+        case startTimer
+        case cancel
+        case minutesUnit
+        case hourUnit
+        case hoursUnit
     }
 
     public static func t(_ key: Key) -> String {
@@ -79,6 +91,18 @@ public enum L10n {
             .refreshTimeLeft: "Refresh time left",
             .discardSession: "Discard local session",
             .keepSession: "Keep session",
+            .disconnectTimer: "Disconnect timer",
+            .disconnectIn: "Disconnect in",
+            .cancelTimer: "Cancel timer",
+            .customTimer: "Custom…",
+            .customTimerTitle: "Disconnect Timer",
+            .customTimerPrompt: "Disconnect automatically after (minutes):",
+            .customTimerInvalid: "Enter a valid number of minutes greater than 0.",
+            .startTimer: "Start",
+            .cancel: "Cancel",
+            .minutesUnit: "min",
+            .hourUnit: "hour",
+            .hoursUnit: "hours",
         ],
         .spanish: [
             .statusConnected: "Conectado",
@@ -105,6 +129,18 @@ public enum L10n {
             .refreshTimeLeft: "Actualizar tiempo disponible",
             .discardSession: "Descartar sesión local",
             .keepSession: "Mantener sesión",
+            .disconnectTimer: "Temporizador de desconexión",
+            .disconnectIn: "Desconectar en",
+            .cancelTimer: "Cancelar temporizador",
+            .customTimer: "Personalizado…",
+            .customTimerTitle: "Temporizador de desconexión",
+            .customTimerPrompt: "Desconectar automáticamente después de (minutos):",
+            .customTimerInvalid: "Introduce un número válido de minutos mayor que 0.",
+            .startTimer: "Iniciar",
+            .cancel: "Cancelar",
+            .minutesUnit: "min",
+            .hourUnit: "hora",
+            .hoursUnit: "horas",
         ],
     ]
 }

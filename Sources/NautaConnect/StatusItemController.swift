@@ -19,6 +19,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var state: State = .disconnected
     private var timeLeft: String?
     private var timer: Timer?
+    private var disconnectDeadline: Date?
+    private weak var timerMenuItem: NSMenuItem?
 
     override init() {
         super.init()
@@ -56,6 +58,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(makeItem(L10n.t(.connect), action: #selector(connectAction), key: "c"))
         case .connected:
             menu.addItem(makeItem(L10n.t(.disconnect), action: #selector(disconnectAction), key: "d"))
+            let timerItem = makeDisconnectTimerItem()
+            timerMenuItem = timerItem
+            menu.addItem(timerItem)
         case .connecting, .disconnecting:
             menu.addItem(disabledItem(L10n.t(.statusWorking)))
         }
@@ -87,6 +92,44 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         return item
+    }
+
+    private func makeDisconnectTimerItem() -> NSMenuItem {
+        let title = disconnectTimerTitle()
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+
+        if disconnectDeadline != nil {
+            submenu.addItem(makeItem(L10n.t(.cancelTimer), action: #selector(cancelDisconnectTimerAction)))
+            submenu.addItem(.separator())
+        }
+
+        for minutes in [5, 15, 30, 60, 120] {
+            let preset = makeItem(presetTitle(minutes: minutes), action: #selector(selectDisconnectTimerPreset(_:)))
+            preset.representedObject = minutes
+            submenu.addItem(preset)
+        }
+
+        submenu.addItem(.separator())
+        submenu.addItem(makeItem(L10n.t(.customTimer), action: #selector(customDisconnectTimerAction)))
+        item.submenu = submenu
+        return item
+    }
+
+    private func disconnectTimerTitle() -> String {
+        if let formatted = formattedCountdown() {
+            return "\(L10n.t(.disconnectIn)) \(formatted)"
+        }
+        return L10n.t(.disconnectTimer)
+    }
+
+    private func presetTitle(minutes: Int) -> String {
+        if minutes < 60 {
+            return "\(minutes) \(L10n.t(.minutesUnit))"
+        }
+        let hours = minutes / 60
+        let unit = hours == 1 ? L10n.t(.hourUnit) : L10n.t(.hoursUnit)
+        return "\(hours) \(unit)"
     }
 
     // MARK: - Actions
@@ -142,6 +185,46 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         refreshTimeLeft()
     }
 
+    @objc private func selectDisconnectTimerPreset(_ sender: NSMenuItem) {
+        guard let minutes = sender.representedObject as? Int, minutes > 0 else { return }
+        startDisconnectTimer(minutes: minutes)
+    }
+
+    @objc private func customDisconnectTimerAction() {
+        let alert = NSAlert()
+        alert.messageText = L10n.t(.customTimerTitle)
+        alert.informativeText = L10n.t(.customTimerPrompt)
+        alert.addButton(withTitle: L10n.t(.startTimer))
+        alert.addButton(withTitle: L10n.t(.cancel))
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        input.placeholderString = "30"
+        input.stringValue = "30"
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let trimmed = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let minutes = Int(trimmed), minutes > 0 else {
+            showError(L10n.t(.customTimerInvalid))
+            return
+        }
+        startDisconnectTimer(minutes: minutes)
+    }
+
+    @objc private func cancelDisconnectTimerAction() {
+        disconnectDeadline = nil
+        timerMenuItem?.title = L10n.t(.disconnectTimer)
+    }
+
+    private func startDisconnectTimer(minutes: Int) {
+        guard state == .connected else { return }
+        disconnectDeadline = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        timerMenuItem?.title = disconnectTimerTitle()
+    }
+
     @objc private func openSettings() {
         if settingsController == nil {
             settingsController = SettingsWindowController()
@@ -173,6 +256,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func clearSession() {
         store.session = nil
         state = .disconnected
+        disconnectDeadline = nil
+        timerMenuItem = nil
         stopElapsedTimer()
         timeLeft = nil
         updateButton()
@@ -183,11 +268,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func startElapsedTimer() {
         stopElapsedTimer()
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            self?.updateButton()
+            self?.timerTick()
         }
         // .common so the title keeps ticking while the menu is open.
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    private func timerTick() {
+        updateButton()
+        guard let deadline = disconnectDeadline else { return }
+        if Date() >= deadline {
+            disconnectDeadline = nil
+            if state == .connected {
+                disconnectAction()
+            }
+        } else {
+            timerMenuItem?.title = disconnectTimerTitle()
+        }
     }
 
     private func stopElapsedTimer() {
@@ -199,6 +297,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         guard let session = store.session else { return "0:00:00" }
         let total = Int(session.elapsed)
         return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    }
+
+    private func formattedCountdown() -> String? {
+        guard let deadline = disconnectDeadline else { return nil }
+        let remaining = max(0, Int(ceil(deadline.timeIntervalSinceNow)))
+        if remaining >= 3600 {
+            return String(format: "%d:%02d:%02d", remaining / 3600, (remaining % 3600) / 60, remaining % 60)
+        }
+        return String(format: "%d:%02d", remaining / 60, remaining % 60)
     }
 
     private func updateButton() {
