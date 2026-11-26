@@ -360,6 +360,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func updateButton() {
         let shouldShowTime = state == .connected && store.showTimeInMenuBar
         statusItem.button?.title = shouldShowTime ? " " + formattedElapsed() : ""
+        statusItem.button?.appearsDisabled = state != .connected
     }
 
     // MARK: - Errors
