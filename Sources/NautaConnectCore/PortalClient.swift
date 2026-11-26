@@ -66,7 +66,7 @@ public final class PortalClient {
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 30
         config.httpAdditionalHeaders = [
-            "User-Agent": "NautaConnect-macOS/1.0",
+            "User-Agent": "NautaConnectPlus-macOS/1.0",
             "Accept": "text/html,application/xhtml+xml,*/*",
         ]
         self.session = URLSession(configuration: config)

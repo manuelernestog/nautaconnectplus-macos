@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="icon.svg" width="96" alt="NautaConnect logo"/>
+<img src="icon.svg" width="96" alt="NautaConnectPlus logo"/>
 
-# NautaConnect for macOS
+# NautaConnectPlus for macOS
 
 **Connect, disconnect and track your Nauta session — right from the menu bar.**
+
+> **Fork notice:** NautaConnectPlus is a fork of the original [NautaConnect for macOS](https://github.com/albertolicea00/nautaconnect-macos) by [@albertolicea00](https://github.com/albertolicea00).
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2012%2B-000066)
 ![Swift](https://img.shields.io/badge/Swift-5.7-F05138?logo=swift&logoColor=white)
@@ -18,7 +20,7 @@
 
 If you use the internet in Cuba, you know the ritual: open the ETECSA captive portal, log in, browse… and pray you never close that tab. Because if you do, there is no logout button anymore — and your precious hours keep burning.
 
-**NautaConnect fixes that.** It lives quietly in your menu bar and gives you the whole Nauta session lifecycle in one click:
+**NautaConnectPlus fixes that.** It lives quietly in your menu bar and gives you the whole Nauta session lifecycle in one click:
 
 - 🔌 **One-click connect & disconnect** — no browser, no tabs, no portal roulette.
 - ⏱ **Live session timer in the menu bar** — always know how long you've been online.
@@ -31,23 +33,17 @@ If you use the internet in Cuba, you know the ritual: open the ETECSA captive po
 
 ## Install
 
-1. Grab the latest `NautaConnect.app` from [Releases](../../releases) *(or build it yourself in two commands — see [SPECS.md](SPECS.md))*.
+1. Grab the latest `NautaConnectPlus.app` from [Releases](../../releases) *(or build it yourself in two commands — see [SPECS.md](SPECS.md))*.
 2. Drop it into `/Applications`.
-3. Click the ⤳ icon in your menu bar, open **Settings…**, enter your `usuario@nauta.com.cu` credentials, done.
+3. Click the icon in your menu bar, open **Settings…**, enter your `usuario@nauta.com.cu` credentials, done.
 
 Building from source, the portal protocol, architecture and everything technical lives in **[SPECS.md](SPECS.md)**.
 
-## Roadmap
+## Original & sister projects
 
-- [x] Connect / disconnect / session timer / remaining time
-- [ ] Notifications before your time runs out
-- [ ] [nauta.cu](https://www.nauta.cu/) user portal integration — account balance, recharges and transfers without leaving the menu bar
-- [ ] Auto-detection of Nauta networks
+NautaConnectPlus is a fork of NautaConnect-macos builds on the original NautaConnect family of small native apps:
 
-## Sister projects
-
-NautaConnect is a family of small native apps, one per platform, no shared bloat:
-
+- **[nautaconnect-macos](https://github.com/albertolicea00/nautaconnect-macos)** — original macOS menu bar app (upstream)
 - **[nautaconnect-windows](https://github.com/albertolicea00/nautaconnect-windows)** — native system-tray app for Windows
 - **[nautaconnect-extension](https://github.com/albertolicea00/nautaconnect--extension)** — Chrome & Firefox extension
 
@@ -57,7 +53,7 @@ Bugs, ideas and PRs are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Disclaimer
 
-NautaConnect is an independent open-source project. It is **not** affiliated with, endorsed by, or supported by ETECSA. It simply automates the same requests your browser makes against the official portal. Use it with your own account, at your own risk.
+NautaConnectPlus is an independent open-source project. It is **not** affiliated with, endorsed by, or supported by ETECSA. It simply automates the same requests your browser makes against the official portal. Use it with your own account, at your own risk.
 
 ## License
 

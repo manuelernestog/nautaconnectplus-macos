@@ -1,11 +1,11 @@
 #!/bin/sh
-# Builds dist/NautaConnect.app from the SwiftPM release binary.
+# Builds dist/NautaConnectPlus.app from the SwiftPM release binary.
 set -eu
 
 cd "$(dirname "$0")/.."
 
 VERSION="${VERSION:-0.1.0}"
-APP="dist/NautaConnect.app"
+APP="dist/NautaConnectPlus.app"
 
 swift build -c release
 
@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>CFBundleIdentifier</key>
 	<string>com.nautaconnect.macos</string>
 	<key>CFBundleName</key>
-	<string>NautaConnect</string>
+	<string>NautaConnectPlus</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

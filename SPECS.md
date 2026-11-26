@@ -1,4 +1,4 @@
-# NautaConnect for macOS — Technical Specifications
+# NautaConnectPlus for macOS — Technical Specifications
 
 Native menu bar client for the ETECSA Nauta captive portal (`https://secure.etecsa.net:8443/`). This document is the engineering reference: architecture, portal protocol, build, storage, i18n and testing.
 
@@ -118,7 +118,7 @@ UI is bilingual Spanish/English via the in-code `L10n` table (`NautaConnectCore/
 ```sh
 swift build                 # debug build
 swift test                  # parser unit tests
-./scripts/build-app.sh      # release build → dist/NautaConnect.app (ad-hoc signed)
+./scripts/build-app.sh      # release build → dist/NautaConnectPlus.app (ad-hoc signed)
 ```
 
 Icons are pre-generated and committed. To regenerate from the SVG sources (requires `librsvg`: `brew install librsvg`):

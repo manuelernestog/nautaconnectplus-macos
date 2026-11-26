@@ -28,15 +28,15 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NautaConnect.app
-          path: dist/NautaConnect.app
+          name: NautaConnectPlus.app
+          path: dist/NautaConnectPlus.app
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ARCHIVE="dist/NautaConnect-${GITHUB_REF_NAME}.zip"
-          ditto -c -k --sequesterRsrc --keepParent dist/NautaConnect.app "$ARCHIVE"
+          ARCHIVE="dist/NautaConnectPlus-${GITHUB_REF_NAME}.zip"
+          ditto -c -k --sequesterRsrc --keepParent dist/NautaConnectPlus.app "$ARCHIVE"
           gh release create "${GITHUB_REF_NAME}" "$ARCHIVE" \
-            --title "NautaConnect ${GITHUB_REF_NAME}" \
+            --title "NautaConnectPlus ${GITHUB_REF_NAME}" \
             --generate-notes

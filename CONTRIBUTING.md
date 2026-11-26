@@ -1,4 +1,4 @@
-# Contributing to NautaConnect for macOS
+# Contributing to NautaConnectPlus for macOS
 
 Thanks for helping! This is a small, focused project — the bar for a good PR is low, the bar for keeping the app tiny is high.
 
@@ -17,7 +17,7 @@ git clone <your fork>
 cd nautaconnect-macos
 swift build          # needs Swift 5.7+ (Xcode 14+ or CLT)
 swift test
-./scripts/build-app.sh && open dist/NautaConnect.app
+./scripts/build-app.sh && open dist/NautaConnectPlus.app
 ```
 
 No Xcode project needed — it is a plain SwiftPM package (you can still `open Package.swift` in Xcode if you prefer).
