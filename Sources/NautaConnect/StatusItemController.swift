@@ -197,21 +197,66 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         alert.addButton(withTitle: L10n.t(.startTimer))
         alert.addButton(withTitle: L10n.t(.cancel))
 
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        input.placeholderString = "30"
-        input.stringValue = "30"
-        alert.accessoryView = input
-        alert.window.initialFirstResponder = input
+        let hoursField = NSTextField()
+        hoursField.placeholderString = "0"
+        hoursField.stringValue = "0"
+        hoursField.alignment = .right
+
+        let minutesField = NSTextField()
+        minutesField.placeholderString = "30"
+        minutesField.stringValue = "30"
+        minutesField.alignment = .right
+
+        let hoursLabel = NSTextField(labelWithString: L10n.t(.hoursUnit))
+        let minutesLabel = NSTextField(labelWithString: L10n.t(.minutesUnit))
+
+        let stack = NSStackView(views: [hoursField, hoursLabel, minutesField, minutesLabel])
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.spacing = 6
+        stack.setCustomSpacing(14, after: hoursLabel)
+        NSLayoutConstraint.activate([
+            hoursField.widthAnchor.constraint(equalToConstant: 56),
+            minutesField.widthAnchor.constraint(equalToConstant: 56),
+        ])
+        stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
+
+        hoursField.nextKeyView = minutesField
+        minutesField.nextKeyView = hoursField
+
+        alert.accessoryView = stack
+        alert.window.initialFirstResponder = hoursField
 
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        let trimmed = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let minutes = Int(trimmed), minutes > 0 else {
+        guard let totalMinutes = parseCustomDurationMinutes(
+            hoursText: hoursField.stringValue,
+            minutesText: minutesField.stringValue
+        ) else {
             showError(L10n.t(.customTimerInvalid))
             return
         }
-        startDisconnectTimer(minutes: minutes)
+        startDisconnectTimer(minutes: totalMinutes)
+    }
+
+    private func parseCustomDurationMinutes(hoursText: String, minutesText: String) -> Int? {
+        guard let hours = parseNonNegativeInt(hoursText),
+              let minutes = parseNonNegativeInt(minutesText) else {
+            return nil
+        }
+        let (hourMinutes, overflow) = hours.multipliedReportingOverflow(by: 60)
+        guard !overflow else { return nil }
+        let (total, addOverflow) = hourMinutes.addingReportingOverflow(minutes)
+        guard !addOverflow, total > 0 else { return nil }
+        return total
+    }
+
+    private func parseNonNegativeInt(_ raw: String) -> Int? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return 0 }
+        guard let value = Int(trimmed), value >= 0 else { return nil }
+        return value
     }
 
     @objc private func cancelDisconnectTimerAction() {
