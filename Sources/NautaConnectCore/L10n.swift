@@ -45,6 +45,8 @@ public enum L10n {
         case errorTitle
         case missingCredentials
         case refreshTimeLeft
+        case discardSession
+        case keepSession
     }
 
     public static func t(_ key: Key) -> String {
@@ -75,6 +77,8 @@ public enum L10n {
             .errorTitle: "NautaConnect",
             .missingCredentials: "Enter your Nauta username and password in Settings first.",
             .refreshTimeLeft: "Refresh time left",
+            .discardSession: "Discard local session",
+            .keepSession: "Keep session",
         ],
         .spanish: [
             .statusConnected: "Conectado",
@@ -99,6 +103,8 @@ public enum L10n {
             .errorTitle: "NautaConnect",
             .missingCredentials: "Primero escribe tu usuario y contraseña de Nauta en Ajustes.",
             .refreshTimeLeft: "Actualizar tiempo disponible",
+            .discardSession: "Descartar sesión local",
+            .keepSession: "Mantener sesión",
         ],
     ]
 }

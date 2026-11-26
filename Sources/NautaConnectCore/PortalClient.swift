@@ -37,6 +37,13 @@ public enum PortalError: LocalizedError, Equatable {
     }
 }
 
+/// Result of probing whether a persisted session is still active on the portal.
+public enum SessionValidation: Equatable {
+    case active(timeLeft: String)
+    case expired
+    case unreachable
+}
+
 /// Tokens scraped from the captive portal login page.
 public struct LoginPage {
     public let csrfhw: String
@@ -165,6 +172,18 @@ public final class PortalClient {
             throw PortalError.badResponse
         }
         return time
+    }
+
+    /// Checks whether a persisted session is still active on the portal.
+    public func validateSession(_ portalSession: PortalSession) async -> SessionValidation {
+        do {
+            let time = try await remainingTime(for: portalSession)
+            return .active(timeLeft: time)
+        } catch PortalError.badResponse {
+            return .expired
+        } catch {
+            return .unreachable
+        }
     }
 
     // MARK: - HTTP plumbing

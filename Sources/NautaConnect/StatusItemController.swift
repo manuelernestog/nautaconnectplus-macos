@@ -30,7 +30,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
-        // Restore a session persisted by a previous run: logout must survive restarts.
+        // Restore a session persisted by a previous run, then verify it is still live.
         if store.session != nil {
             state = .connected
             startElapsedTimer()
@@ -128,14 +128,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         Task { @MainActor in
             do {
                 try await client.logout(session)
-                store.session = nil
-                state = .disconnected
-                stopElapsedTimer()
-                timeLeft = nil
+                clearSession()
             } catch {
-                // Keep the session: dropping it would strand the user logged in.
+                // Keep the session by default: dropping it would strand the user logged in.
                 state = .connected
-                showError(error.localizedDescription)
+                showLogoutFailure(error.localizedDescription)
             }
             updateButton()
         }
@@ -162,8 +159,23 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func refreshTimeLeft() {
         guard let session = store.session else { return }
         Task { @MainActor in
-            timeLeft = try? await client.remainingTime(for: session)
+            switch await client.validateSession(session) {
+            case .active(let time):
+                timeLeft = time
+            case .expired:
+                clearSession()
+            case .unreachable:
+                break
+            }
         }
+    }
+
+    private func clearSession() {
+        store.session = nil
+        state = .disconnected
+        stopElapsedTimer()
+        timeLeft = nil
+        updateButton()
     }
 
     // MARK: - Elapsed timer
@@ -202,5 +214,18 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         alert.informativeText = message
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
+    }
+
+    private func showLogoutFailure(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.t(.errorTitle)
+        alert.informativeText = message
+        alert.addButton(withTitle: L10n.t(.keepSession))
+        alert.addButton(withTitle: L10n.t(.discardSession))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            clearSession()
+        }
     }
 }
