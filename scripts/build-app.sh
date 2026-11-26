@@ -4,7 +4,7 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
-VERSION="0.1.0"
+VERSION="${VERSION:-0.1.0}"
 APP="dist/NautaConnect.app"
 
 swift build -c release
