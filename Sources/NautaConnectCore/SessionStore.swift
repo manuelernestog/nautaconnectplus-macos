@@ -10,6 +10,7 @@ public final class SessionStore {
         static let session = "portalSession"
         static let username = "username"
         static let language = "language"
+        static let showTimeInMenuBar = "showTimeInMenuBar"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -46,5 +47,10 @@ public final class SessionStore {
             return lang
         }
         set { defaults.set(newValue.rawValue, forKey: Keys.language) }
+    }
+
+    public var showTimeInMenuBar: Bool {
+        get { defaults.object(forKey: Keys.showTimeInMenuBar) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Keys.showTimeInMenuBar) }
     }
 }

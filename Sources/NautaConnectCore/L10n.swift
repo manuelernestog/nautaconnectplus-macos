@@ -40,6 +40,7 @@ public enum L10n {
         case passwordLabel
         case languageLabel
         case launchAtLogin
+        case showTimeInMenuBar
         case save
         case saved
         case errorTitle
@@ -84,6 +85,7 @@ public enum L10n {
             .passwordLabel: "Password:",
             .languageLabel: "Language:",
             .launchAtLogin: "Launch at login",
+            .showTimeInMenuBar: "Show time in menu bar",
             .save: "Save",
             .saved: "Saved",
             .errorTitle: "NautaConnectPlus",
@@ -122,6 +124,7 @@ public enum L10n {
             .passwordLabel: "Contraseña:",
             .languageLabel: "Idioma:",
             .launchAtLogin: "Abrir al iniciar sesión",
+            .showTimeInMenuBar: "Mostrar tiempo en la barra de menú",
             .save: "Guardar",
             .saved: "Guardado",
             .errorTitle: "NautaConnectPlus",

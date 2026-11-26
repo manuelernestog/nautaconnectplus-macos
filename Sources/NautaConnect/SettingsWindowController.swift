@@ -2,17 +2,20 @@ import AppKit
 import NautaConnectCore
 import ServiceManagement
 
-/// Credentials + language + launch-at-login. Programmatic AppKit, no nibs.
+/// Credentials + language + launch-at-login + menu bar preferences. Programmatic AppKit, no nibs.
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var onSave: (() -> Void)?
+
     private let usernameField = NSTextField()
     private let passwordField = NSSecureTextField()
     private let languagePopup = NSPopUpButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let showTimeInMenuBarCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let store = SessionStore.shared
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 190),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 215),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -42,6 +45,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             launchAtLoginCheckbox.isHidden = true
         }
 
+        showTimeInMenuBarCheckbox.title = L10n.t(.showTimeInMenuBar)
+
         let saveButton = NSButton(title: L10n.t(.save), target: self, action: #selector(save))
         saveButton.bezelStyle = .rounded
         saveButton.keyEquivalent = "\r"
@@ -51,6 +56,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             [passwordLabel, passwordField],
             [languageLabel, languagePopup],
             [NSGridCell.emptyContentView, launchAtLoginCheckbox],
+            [NSGridCell.emptyContentView, showTimeInMenuBarCheckbox],
             [NSGridCell.emptyContentView, saveButton],
         ])
         grid.rowSpacing = 10
@@ -85,6 +91,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         if #available(macOS 13.0, *) {
             launchAtLoginCheckbox.state = SMAppService.mainApp.status == .enabled ? .on : .off
         }
+        showTimeInMenuBarCheckbox.state = store.showTimeInMenuBar ? .on : .off
     }
 
     @objc private func save() {
@@ -97,6 +104,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let language = Language.allCases[languagePopup.indexOfSelectedItem]
         store.language = language
         L10n.language = language
+        store.showTimeInMenuBar = showTimeInMenuBarCheckbox.state == .on
 
         if #available(macOS 13.0, *) {
             // Best effort: registration fails outside a proper .app bundle (e.g. swift run).
@@ -110,6 +118,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 NSLog("Launch at login toggle failed: \(error.localizedDescription)")
             }
         }
+
+        onSave?()
 
         // Language may have changed; rebuild the window next time it opens.
         close()

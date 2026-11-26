@@ -227,7 +227,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         if settingsController == nil {
-            settingsController = SettingsWindowController()
+            let controller = SettingsWindowController()
+            controller.onSave = { [weak self] in
+                self?.updateButton()
+            }
+            settingsController = controller
         }
         settingsController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -309,7 +313,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func updateButton() {
-        statusItem.button?.title = state == .connected ? " " + formattedElapsed() : ""
+        let shouldShowTime = state == .connected && store.showTimeInMenuBar
+        statusItem.button?.title = shouldShowTime ? " " + formattedElapsed() : ""
     }
 
     // MARK: - Errors
