@@ -49,6 +49,8 @@ public enum L10n {
         case usernameLabel
         case usernamePlaceholder
         case passwordLabel
+        case showPassword
+        case hidePassword
         case languageLabel
         case launchAtLogin
         case showTimeInMenuBar
@@ -111,6 +113,8 @@ public enum L10n {
             .usernameLabel: "Username:",
             .usernamePlaceholder: "user@nauta.com.cu",
             .passwordLabel: "Password:",
+            .showPassword: "Show password",
+            .hidePassword: "Hide password",
             .languageLabel: "Language:",
             .launchAtLogin: "Launch at login",
             .showTimeInMenuBar: "Show time in menu bar",
@@ -167,6 +171,8 @@ public enum L10n {
             .usernameLabel: "Usuario:",
             .usernamePlaceholder: "usuario@nauta.com.cu",
             .passwordLabel: "Contraseña:",
+            .showPassword: "Mostrar contraseña",
+            .hidePassword: "Ocultar contraseña",
             .languageLabel: "Idioma:",
             .launchAtLogin: "Abrir al iniciar sesión",
             .showTimeInMenuBar: "Mostrar tiempo en la barra de menú",

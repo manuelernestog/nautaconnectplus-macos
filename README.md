@@ -48,7 +48,8 @@ confirmation. An account in use cannot be deleted: disconnect it first.
 
 **Save** is enabled only for an address ending in `@nauta.com.cu` or
 `@nauta.co.cu` with a nonempty password. Already saved emails cannot be added again;
-comparison ignores case and surrounding whitespace.
+comparison ignores case and surrounding whitespace. Use the eye button to show or
+hide the password while entering it.
 
 With one account, **Connect** remains a one-click action. With multiple accounts,
 **Connect** opens a submenu listing them, followed by **+ Add account**, which opens

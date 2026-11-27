@@ -1,10 +1,10 @@
 import AppKit
 import NautaConnectCore
 
-final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate {
+final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate, NSWindowDelegate {
     var onAdd: (() -> Void)?
     private let usernameField = NSTextField()
-    private let passwordField = NSSecureTextField()
+    private let passwordField = PasswordInputView()
     private let saveButton = NSButton()
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private let formStack = NSStackView()
@@ -13,12 +13,13 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 210),
                               styleMask: [.titled], backing: .buffered, defer: false)
         self.init(window: window)
+        window.delegate = self
         window.title = L10n.t(.addAccountTitle)
         window.isReleasedWhenClosed = false
         usernameField.placeholderString = L10n.t(.usernamePlaceholder)
         errorLabel.textColor = .systemRed
         usernameField.delegate = self
-        passwordField.delegate = self
+        passwordField.onChange = { [weak self] in self?.updateValidation() }
         let save = saveButton
         save.title = L10n.t(.save)
         save.target = self
@@ -36,6 +37,7 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
         ])
         grid.columnSpacing = 8
         grid.rowSpacing = 12
+        grid.row(at: 1).yPlacement = .center
         let stack = formStack
         stack.orientation = .vertical
         stack.setViews([grid, errorLabel, buttons], in: .top)
@@ -52,7 +54,7 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
             errorLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
             buttons.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
         ])
-        usernameField.nextKeyView = passwordField
+        usernameField.nextKeyView = passwordField.textField
         window.initialFirstResponder = usernameField
         resizeToFitContent()
     }
@@ -85,6 +87,7 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
         )
         errorLabel.stringValue = AccountFormValidation.isDuplicate(username: usernameField.stringValue, existingAccounts: accounts)
             ? L10n.t(.duplicateAccount) : ""
+        usernameField.nextKeyView = passwordField.textField
         resizeToFitContent()
     }
 
@@ -97,8 +100,10 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
 
     @objc private func cancelAdd() { finish() }
 
+    func windowWillClose(_ notification: Notification) { passwordField.clear() }
+
     private func finish() {
-        passwordField.stringValue = ""
+        passwordField.clear()
         guard let window else { return }
         window.sheetParent?.endSheet(window)
         close()
