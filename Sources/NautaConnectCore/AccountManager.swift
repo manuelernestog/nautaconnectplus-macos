@@ -23,7 +23,7 @@ public final class AccountManager {
     public func add(username: String, password: String) throws {
         let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !username.isEmpty, !password.isEmpty else { throw AccountError.missingCredentials }
-        guard !store.accounts.contains(where: { $0.caseInsensitiveCompare(username) == .orderedSame }) else {
+        guard !AccountFormValidation.isDuplicate(username: username, existingAccounts: store.accounts) else {
             throw AccountError.duplicate
         }
         guard savePassword(password, username) else { throw AccountError.keychainFailure }

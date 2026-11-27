@@ -51,6 +51,19 @@ final class AccountTests: XCTestCase {
         }
     }
 
+    func testLegacyDuplicateIsRejectedBeforeKeychainWrite() throws {
+        try withStore { store, defaults in
+            defaults.set([" User@Nauta.COM.CU \n"], forKey: "accounts")
+            var writes = 0
+            let manager = AccountManager(store: store, savePassword: { _, _ in writes += 1; return false })
+            XCTAssertThrowsError(try manager.add(username: "user@nauta.com.cu", password: "replacement")) {
+                guard case AccountError.duplicate = $0 else { return XCTFail("Expected duplicate, got \($0)") }
+            }
+            XCTAssertEqual(writes, 0)
+            XCTAssertEqual(store.accounts, [" User@Nauta.COM.CU \n"])
+        }
+    }
+
     @MainActor
     func testSwitchLogsOutBeforeLoginAndPersistsNewSession() async throws {
         let (store, defaults, name) = makeStore()

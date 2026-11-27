@@ -20,4 +20,15 @@ final class AccountFormValidationTests: XCTestCase {
             XCTAssertTrue(AccountFormValidation.canSave(username: username, password: " "))
         }
     }
+    func testDuplicatesDisableSavingUsingTheSameEmailNormalization() {
+        let existing = [" Saved@Nauta.COM.CU \n"]
+        for username in ["saved@nauta.com.cu", "SAVED@NAUTA.COM.CU", " saved@nauta.com.cu "] {
+            XCTAssertTrue(AccountFormValidation.isDuplicate(username: username, existingAccounts: existing))
+            XCTAssertFalse(AccountFormValidation.canSave(username: username, password: "fake", existingAccounts: existing))
+        }
+        XCTAssertFalse(AccountFormValidation.isDuplicate(username: "saved@nauta.co.cu", existingAccounts: existing))
+        XCTAssertTrue(AccountFormValidation.canSave(username: "saved@nauta.co.cu", password: "fake", existingAccounts: existing))
+        XCTAssertFalse(AccountFormValidation.canSave(username: "", password: "fake", existingAccounts: existing))
+    }
+
 }

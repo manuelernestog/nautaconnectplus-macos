@@ -58,9 +58,8 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
     }
 
     @objc private func saveAccount() {
-        guard AccountFormValidation.canSave(username: usernameField.stringValue, password: passwordField.stringValue) else {
-            return
-        }
+        updateValidation()
+        guard saveButton.isEnabled else { return }
         do {
             try AccountManager(store: .shared).add(username: usernameField.stringValue, password: passwordField.stringValue)
             onAdd?()
@@ -76,15 +75,24 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate 
     }
 
     func controlTextDidChange(_ notification: Notification) {
+        updateValidation()
+    }
+
+    private func updateValidation() {
+        let accounts = SessionStore.shared.accounts
         saveButton.isEnabled = AccountFormValidation.canSave(
-            username: usernameField.stringValue, password: passwordField.stringValue
+            username: usernameField.stringValue, password: passwordField.stringValue, existingAccounts: accounts
         )
+        errorLabel.stringValue = AccountFormValidation.isDuplicate(username: usernameField.stringValue, existingAccounts: accounts)
+            ? L10n.t(.duplicateAccount) : ""
+        resizeToFitContent()
     }
 
     private func resizeToFitContent() {
         guard let window, let content = window.contentView else { return }
         content.layoutSubtreeIfNeeded()
-        window.setContentSize(NSSize(width: content.bounds.width, height: formStack.fittingSize.height + 40))
+        let size = NSSize(width: content.bounds.width, height: formStack.fittingSize.height + 40)
+        if content.bounds.size != size { window.setContentSize(size) }
     }
 
     @objc private func cancelAdd() { finish() }
