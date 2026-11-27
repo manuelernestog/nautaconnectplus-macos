@@ -59,26 +59,33 @@ public struct LoginPage {
 public final class PortalClient {
     public static let baseURL = URL(string: "https://secure.etecsa.net:8443")!
 
+    private static let userAgent = "NautaConnectPlus-macOS/1.0"
+    private static let acceptHeader = "text/html,application/xhtml+xml,*/*"
+
     private let session: URLSession
+    private let directTransport = DirectPortalTransport(
+        userAgent: userAgent,
+        acceptHeader: acceptHeader
+    )
 
     public init() {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 30
+        // Ignore system HTTP/SOCKS proxies (e.g. V2Ray, Clash, Shadowsocks) so portal traffic stays local.
+        config.connectionProxyDictionary = [:]
         config.httpAdditionalHeaders = [
-            "User-Agent": "NautaConnectPlus-macOS/1.0",
-            "Accept": "text/html,application/xhtml+xml,*/*",
+            "User-Agent": Self.userAgent,
+            "Accept": Self.acceptHeader,
         ]
         self.session = URLSession(configuration: config)
     }
 
     /// Quick reachability probe. The portal only answers from inside an ETECSA network.
     public func isPortalReachable() async -> Bool {
-        var request = URLRequest(url: Self.baseURL)
-        request.timeoutInterval = 5
         do {
-            let (_, response) = try await session.data(for: request)
-            return (response as? HTTPURLResponse) != nil
+            _ = try await performRequest(method: "GET", url: Self.baseURL, timeout: 5)
+            return true
         } catch {
             return false
         }
@@ -189,17 +196,42 @@ public final class PortalClient {
     // MARK: - HTTP plumbing
 
     private func get(_ url: URL) async throws -> String {
-        let (data, _) = try await session.data(from: url)
+        let data = try await performRequest(method: "GET", url: url, timeout: 15)
         return String(decoding: data, as: UTF8.self)
     }
 
     private func post(_ url: URL, form: [(String, String)]) async throws -> String {
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Self.encodeForm(form).data(using: .utf8)
-        let (data, _) = try await session.data(for: request)
+        let body = Self.encodeForm(form).data(using: .utf8)
+        let data = try await performRequest(method: "POST", url: url, formBody: body, timeout: 15)
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private func performRequest(
+        method: String,
+        url: URL,
+        formBody: Data? = nil,
+        timeout: TimeInterval
+    ) async throws -> Data {
+        if let physicalInterface = await DirectPortalTransport.physicalInterfaceIfVPNActive() {
+            let (data, _) = try await directTransport.send(
+                method: method,
+                url: url,
+                formBody: formBody,
+                timeout: timeout,
+                via: physicalInterface
+            )
+            return data
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = timeout
+        if let formBody {
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.httpBody = formBody
+        }
+        let (data, _) = try await session.data(for: request)
+        return data
     }
 
     /// application/x-www-form-urlencoded encoding ('+', '@', '&', '=' must be escaped).
