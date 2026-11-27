@@ -72,8 +72,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         saveButton.keyEquivalent = "\r"
 
         let grid = NSGridView(views: [
-            [label(L10n.t(.accounts)), scroll],
-            [NSGridCell.emptyContentView, add],
+            [label(L10n.t(.accounts)), add],
+            [NSGridCell.emptyContentView, scroll],
             [languageLabel, languagePopup],
             [NSGridCell.emptyContentView, launchAtLoginCheckbox],
             [NSGridCell.emptyContentView, showTimeInMenuBarCheckbox],
@@ -84,6 +84,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         grid.rowSpacing = 10
         grid.columnSpacing = 8
         grid.column(at: 0).xPlacement = .trailing
+        grid.row(at: 0).yPlacement = .center
         grid.translatesAutoresizingMaskIntoConstraints = false
 
         let content = window.contentView!
