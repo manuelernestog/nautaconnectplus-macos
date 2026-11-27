@@ -52,6 +52,12 @@ public final class SessionStore {
         if self.username.isEmpty { self.username = username }
     }
 
+    func removeAccount(_ username: String) {
+        let remaining = accounts.filter { $0 != username }
+        defaults.set(remaining, forKey: Keys.accounts)
+        if self.username == username { self.username = remaining.first ?? "" }
+    }
+
     public var language: Language {
         get {
             guard let raw = defaults.string(forKey: Keys.language),

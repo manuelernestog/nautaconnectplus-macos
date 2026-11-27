@@ -43,6 +43,9 @@ Building from source, the portal protocol, architecture and everything technical
 
 Add accounts from **Settings… → + Add account**. Settings lists your saved usernames;
 passwords stay in Keychain. Your existing account is kept automatically.
+Use the trash icon beside an account to remove it and its saved password after
+confirmation. An account in use cannot be deleted: disconnect it first.
+
 **Save** is enabled only for an address ending in `@nauta.com.cu` or
 `@nauta.co.cu` with a nonempty password.
 

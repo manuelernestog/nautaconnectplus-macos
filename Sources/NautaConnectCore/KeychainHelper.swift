@@ -30,7 +30,8 @@ public enum KeychainHelper {
 
     @discardableResult
     public static func deletePassword(account: String) -> Bool {
-        SecItemDelete(baseQuery(account: account) as CFDictionary) == errSecSuccess
+        let status = SecItemDelete(baseQuery(account: account) as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     private static func baseQuery(account: String) -> [String: Any] {

@@ -5,6 +5,7 @@ import ServiceManagement
 /// Account management and application preferences.
 final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var onSave: (() -> Void)?
+    var isAccountInUse: (String) -> Bool = { SessionStore.shared.session?.username == $0 }
 
     private let accountTable = NSTableView()
     private var accountEditor: AddAccountWindowController?
@@ -38,12 +39,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
         let languageLabel = label(L10n.t(.languageLabel))
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("username"))
-        column.width = 270
+        column.resizingMask = .autoresizingMask
         accountTable.addTableColumn(column)
+        accountTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        accountTable.autoresizingMask = [.width]
         accountTable.headerView = nil
         accountTable.dataSource = self
         accountTable.delegate = self
-        accountTable.rowHeight = 24
+        accountTable.rowHeight = 32
         let scroll = NSScrollView()
         scroll.documentView = accountTable
         scroll.hasVerticalScroller = true
@@ -168,7 +171,44 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTa
     func numberOfRows(in tableView: NSTableView) -> Int { store.accounts.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        NSTextField(labelWithString: store.accounts[row])
+        let username = store.accounts[row]
+        return AccountRowView(username: username) { [weak self] in self?.deleteAccount(username: username) }
+    }
+
+    private func deleteAccount(username: String) {
+        guard let window, window.attachedSheet == nil else { return }
+        guard !isAccountInUse(username) else {
+            showAccountError(title: .accountInUseTitle, message: .accountInUseMessage)
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.t(.deleteAccount)
+        alert.informativeText = String(format: L10n.t(.deleteAccountConfirmation), username)
+        alert.addButton(withTitle: L10n.t(.deleteAccount))
+        alert.addButton(withTitle: L10n.t(.cancel))
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            do {
+                try AccountManager(store: self.store).remove(username: username, isInUse: self.isAccountInUse(username))
+                self.accountTable.reloadData()
+                self.onSave?()
+            } catch AccountError.accountInUse {
+                self.showAccountError(title: .accountInUseTitle, message: .accountInUseMessage)
+            } catch {
+                self.showAccountError(title: .errorTitle, message: .deleteAccountFailed)
+            }
+        }
+    }
+
+    private func showAccountError(title: L10n.Key, message: L10n.Key) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.t(title)
+        alert.informativeText = L10n.t(message)
+        alert.addButton(withTitle: L10n.t(.ok))
+        alert.beginSheetModal(for: window)
     }
 
     @objc func presentAddAccount() {

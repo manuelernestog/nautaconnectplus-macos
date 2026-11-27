@@ -22,6 +22,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         logout: { [client] in try await client.logout($0) }
     )
     private var settingsController: SettingsWindowController?
+    private var accountOperations: [UUID: String] = [:]
 
     private var state: State = .disconnected
     private var timeLeft: String?
@@ -222,6 +223,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return
         }
 
+        let operationID = UUID()
+        accountOperations[operationID] = username
         let wasMaintaining = shouldMaintainConnection
         shouldMaintainConnection = false
         stopHealthCheckTimer()
@@ -230,6 +233,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         state = store.session == nil ? .connecting : .disconnecting
         updateButton()
         Task { @MainActor in
+            defer { accountOperations.removeValue(forKey: operationID) }
             do {
                 try await accountConnector.connect(username: username, password: password)
                 disconnectDeadline = nil
@@ -381,6 +385,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func openSettings() {
         if settingsController == nil || settingsController?.window?.isVisible != true {
             let controller = SettingsWindowController()
+            controller.isAccountInUse = { [weak self] username in
+                guard let self else { return true }
+                return self.store.session?.username == username
+                    || self.accountOperations.values.contains(username)
+                    || (self.state != .disconnected && self.store.username == username)
+            }
             controller.onSave = { [weak self] in
                 self?.handleSettingsSaved()
             }
@@ -516,8 +526,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         state = .reconnecting(attempt: 1)
         updateButton()
 
+        let operationID = UUID()
+        accountOperations[operationID] = store.username
         reconnectTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.accountOperations.removeValue(forKey: operationID) }
             await self.runReconnectLoop()
         }
     }

@@ -27,6 +27,12 @@ public enum L10n {
         case statusDisconnected
         case statusNotOnNetwork
         case statusWorking
+        case deleteAccount
+        case deleteAccountConfirmation
+        case deleteAccountFailed
+        case accountInUseTitle
+        case accountInUseMessage
+        case ok
         case accounts
         case addAccount
         case addAccountTitle
@@ -83,6 +89,12 @@ public enum L10n {
             .statusDisconnected: "Disconnected",
             .statusNotOnNetwork: "Not on a Nauta network",
             .statusWorking: "Working…",
+            .deleteAccount: "Delete account",
+            .deleteAccountConfirmation: "Delete “%@” and its saved password from this Mac?",
+            .deleteAccountFailed: "Could not remove the password from Keychain. The account was not deleted.",
+            .accountInUseTitle: "Account in use",
+            .accountInUseMessage: "The account you want to delete is in use. Disconnect it before deleting it.",
+            .ok: "OK",
             .accounts: "Accounts:",
             .addAccount: "+ Add account",
             .addAccountTitle: "Add account",
@@ -133,6 +145,12 @@ public enum L10n {
             .statusDisconnected: "Desconectado",
             .statusNotOnNetwork: "No estás en una red Nauta",
             .statusWorking: "Procesando…",
+            .deleteAccount: "Eliminar cuenta",
+            .deleteAccountConfirmation: "¿Eliminar “%@” y su contraseña guardada de este Mac?",
+            .deleteAccountFailed: "No se pudo eliminar la contraseña del Llavero. La cuenta no se ha eliminado.",
+            .accountInUseTitle: "Cuenta en uso",
+            .accountInUseMessage: "La cuenta que quieres eliminar está en uso. Para eliminarla, debes desconectarte primero.",
+            .ok: "Aceptar",
             .accounts: "Cuentas:",
             .addAccount: "+ Agregar cuenta",
             .addAccountTitle: "Agregar cuenta",

@@ -4,6 +4,7 @@ public enum AccountError: Error {
     case missingCredentials
     case duplicate
     case keychainFailure
+    case accountInUse
     case busy
     case logoutFailed(Error)
 }
@@ -27,6 +28,14 @@ public final class AccountManager {
         }
         guard savePassword(password, username) else { throw AccountError.keychainFailure }
         store.appendAccount(username)
+    }
+
+    public func remove(username: String, isInUse: Bool = false,
+                       deletePassword: (String) -> Bool = { KeychainHelper.deletePassword(account: $0) }) throws {
+        guard store.accounts.contains(username) else { return }
+        guard !isInUse, store.session?.username != username else { throw AccountError.accountInUse }
+        guard deletePassword(username) else { throw AccountError.keychainFailure }
+        store.removeAccount(username)
     }
 }
 
