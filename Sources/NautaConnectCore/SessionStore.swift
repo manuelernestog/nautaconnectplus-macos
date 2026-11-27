@@ -11,6 +11,8 @@ public final class SessionStore {
         static let username = "username"
         static let language = "language"
         static let showTimeInMenuBar = "showTimeInMenuBar"
+        static let autoReconnect = "autoReconnect"
+        static let autoReconnectIntervalSeconds = "autoReconnectIntervalSeconds"
     }
 
     public init(defaults: UserDefaults = .standard) {
@@ -52,5 +54,23 @@ public final class SessionStore {
     public var showTimeInMenuBar: Bool {
         get { defaults.object(forKey: Keys.showTimeInMenuBar) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Keys.showTimeInMenuBar) }
+    }
+
+    public var autoReconnect: Bool {
+        get { defaults.object(forKey: Keys.autoReconnect) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Keys.autoReconnect) }
+    }
+
+    public var autoReconnectIntervalSeconds: Int {
+        get {
+            let stored = defaults.integer(forKey: Keys.autoReconnectIntervalSeconds)
+            return ReconnectPolicy.supportedIntervals.contains(stored) ? stored : ReconnectPolicy.defaultIntervalSeconds
+        }
+        set {
+            let valid = ReconnectPolicy.supportedIntervals.contains(newValue)
+                ? newValue
+                : ReconnectPolicy.defaultIntervalSeconds
+            defaults.set(valid, forKey: Keys.autoReconnectIntervalSeconds)
+        }
     }
 }

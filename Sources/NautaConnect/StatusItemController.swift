@@ -1,14 +1,16 @@
 import AppKit
 import NautaConnectCore
+import UserNotifications
 
 /// Owns the NSStatusItem: icon, elapsed-time title, and the dropdown menu
 /// with connect/disconnect actions.
 final class StatusItemController: NSObject, NSMenuDelegate {
-    private enum State {
+    private enum State: Equatable {
         case disconnected
         case connecting
         case connected
         case disconnecting
+        case reconnecting(attempt: Int)
     }
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -19,8 +21,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var state: State = .disconnected
     private var timeLeft: String?
     private var timer: Timer?
+    private var healthCheckTimer: Timer?
     private var disconnectDeadline: Date?
     private weak var timerMenuItem: NSMenuItem?
+
+    // True only when a session was started manually in this run or confirmed live at launch.
+    private var shouldMaintainConnection = false
+    private var isCheckingSession = false
+    private var reconnectTask: Task<Void, Never>?
+    private var wakeObserver: NSObjectProtocol?
+    private var lastFatalReconnectError: String?
 
     override init() {
         super.init()
@@ -32,13 +42,30 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemWake()
+        }
+
         // Restore a session persisted by a previous run, then verify it is still live.
+        // Never auto-reconnect on launch if the server session already expired while the app was closed.
         if store.session != nil {
             state = .connected
             startElapsedTimer()
-            refreshTimeLeft()
+            validateRestoredSession()
         }
         updateButton()
+    }
+
+    deinit {
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
+        healthCheckTimer?.invalidate()
+        reconnectTask?.cancel()
     }
 
     // MARK: - Menu
@@ -47,6 +74,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
 
         menu.addItem(disabledItem(statusLine()))
+        if state == .disconnected, let err = lastFatalReconnectError {
+            menu.addItem(disabledItem("\(L10n.t(.reconnectFailedTitle)): \(err)"))
+        }
         if state == .connected {
             menu.addItem(disabledItem("\(L10n.t(.timeLeft)): \(timeLeft ?? "—")"))
             menu.addItem(makeItem(L10n.t(.refreshTimeLeft), action: #selector(refreshTimeLeftAction)))
@@ -61,6 +91,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             let timerItem = makeDisconnectTimerItem()
             timerMenuItem = timerItem
             menu.addItem(timerItem)
+        case .reconnecting:
+            menu.addItem(makeItem(L10n.t(.cancelReconnect), action: #selector(cancelReconnectAction)))
         case .connecting, .disconnecting:
             menu.addItem(disabledItem(L10n.t(.statusWorking)))
         }
@@ -79,6 +111,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return L10n.t(.statusDisconnected)
         case .connecting, .disconnecting:
             return L10n.t(.statusWorking)
+        case .reconnecting(let attempt):
+            return "\(L10n.t(.statusReconnecting)) (\(attempt))"
         }
     }
 
@@ -143,6 +177,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return
         }
 
+        lastFatalReconnectError = nil
         state = .connecting
         updateButton()
         Task { @MainActor in
@@ -150,10 +185,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 let session = try await client.login(username: username, password: password)
                 store.session = session
                 state = .connected
+                shouldMaintainConnection = true
                 startElapsedTimer()
+                scheduleHealthCheckTimer()
                 refreshTimeLeft()
             } catch {
                 state = .disconnected
+                shouldMaintainConnection = false
                 showError(error.localizedDescription)
             }
             updateButton()
@@ -161,6 +199,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func disconnectAction() {
+        shouldMaintainConnection = false
+        cancelPendingReconnect()
+        stopHealthCheckTimer()
+
         guard let session = store.session else {
             state = .disconnected
             updateButton()
@@ -175,10 +217,18 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             } catch {
                 // Keep the session by default: dropping it would strand the user logged in.
                 state = .connected
+                shouldMaintainConnection = true
+                scheduleHealthCheckTimer()
                 showLogoutFailure(error.localizedDescription)
             }
             updateButton()
         }
+    }
+
+    @objc private func cancelReconnectAction() {
+        shouldMaintainConnection = false
+        cancelPendingReconnect()
+        clearSession()
     }
 
     @objc private func refreshTimeLeftAction() {
@@ -271,10 +321,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() {
-        if settingsController == nil {
+        if settingsController == nil || settingsController?.window?.isVisible != true {
             let controller = SettingsWindowController()
             controller.onSave = { [weak self] in
-                self?.updateButton()
+                self?.handleSettingsSaved()
             }
             settingsController = controller
         }
@@ -282,11 +332,49 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func handleSettingsSaved() {
+        updateButton()
+        switch state {
+        case .connected:
+            if store.autoReconnect && shouldMaintainConnection {
+                scheduleHealthCheckTimer()
+            } else {
+                stopHealthCheckTimer()
+            }
+        case .reconnecting:
+            if !store.autoReconnect {
+                cancelReconnectAction()
+            }
+        case .disconnected, .connecting, .disconnecting:
+            break
+        }
+    }
+
     @objc private func quit() {
         NSApp.terminate(nil)
     }
 
-    // MARK: - Time left
+    // MARK: - Time left & Auto-reconnect
+
+    private func validateRestoredSession() {
+        guard let session = store.session else { return }
+        Task { @MainActor in
+            switch await client.validateSession(session) {
+            case .active(let time):
+                timeLeft = time
+                if state == .connected && store.session == session {
+                    shouldMaintainConnection = true
+                    scheduleHealthCheckTimer()
+                }
+            case .expired:
+                // Session expired while the app was closed: clean up without auto-reconnecting.
+                shouldMaintainConnection = false
+                clearSession()
+            case .unreachable:
+                shouldMaintainConnection = false
+            }
+        }
+    }
 
     private func refreshTimeLeft() {
         guard let session = store.session else { return }
@@ -295,9 +383,166 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             case .active(let time):
                 timeLeft = time
             case .expired:
-                clearSession()
+                if shouldMaintainConnection && store.autoReconnect && state == .connected {
+                    beginAutoReconnect()
+                } else {
+                    clearSession()
+                }
             case .unreachable:
                 break
+            }
+        }
+    }
+
+    private func scheduleHealthCheckTimer() {
+        stopHealthCheckTimer()
+        guard state == .connected, shouldMaintainConnection, store.autoReconnect else { return }
+        let interval = TimeInterval(store.autoReconnectIntervalSeconds)
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            self?.performHealthCheck()
+        }
+        timer.tolerance = min(10, interval * 0.15)
+        RunLoop.main.add(timer, forMode: .common)
+        healthCheckTimer = timer
+    }
+
+    private func stopHealthCheckTimer() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
+    }
+
+    private func performHealthCheck() {
+        guard state == .connected,
+              shouldMaintainConnection,
+              store.autoReconnect,
+              !isCheckingSession,
+              let session = store.session else { return }
+
+        isCheckingSession = true
+        Task { @MainActor in
+            defer { isCheckingSession = false }
+            let validation = await client.validateSession(session)
+            guard state == .connected,
+                  shouldMaintainConnection,
+                  store.autoReconnect,
+                  store.session == session else { return }
+
+            switch validation {
+            case .active(let time):
+                timeLeft = time
+            case .unreachable:
+                break
+            case .expired:
+                beginAutoReconnect()
+            }
+        }
+    }
+
+    private func beginAutoReconnect() {
+        guard shouldMaintainConnection, store.autoReconnect else { return }
+        if let deadline = disconnectDeadline, Date() >= deadline {
+            shouldMaintainConnection = false
+            clearSession()
+            return
+        }
+
+        cancelPendingReconnect()
+        stopHealthCheckTimer()
+        stopElapsedTimer()
+        store.session = nil
+        timeLeft = nil
+        state = .reconnecting(attempt: 1)
+        updateButton()
+
+        reconnectTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runReconnectLoop()
+        }
+    }
+
+    @MainActor
+    private func runReconnectLoop() async {
+        var attempt = 1
+        while !Task.isCancelled && shouldMaintainConnection && store.autoReconnect {
+            if let deadline = disconnectDeadline, Date() >= deadline {
+                shouldMaintainConnection = false
+                clearSession()
+                return
+            }
+
+            state = .reconnecting(attempt: attempt)
+            updateButton()
+
+            let username = store.username
+            guard !username.isEmpty,
+                  let password = KeychainHelper.loadPassword(account: username), !password.isEmpty else {
+                shouldMaintainConnection = false
+                let message = L10n.t(.missingCredentials)
+                lastFatalReconnectError = message
+                clearSession()
+                notifyFatalReconnectFailure(message)
+                return
+            }
+
+            do {
+                let newSession = try await client.login(username: username, password: password)
+                if Task.isCancelled || !shouldMaintainConnection {
+                    // User cancelled while login was in flight; log back out so paid time does not leak.
+                    try? await client.logout(newSession)
+                    return
+                }
+                store.session = newSession
+                state = .connected
+                lastFatalReconnectError = nil
+                reconnectTask = nil
+                startElapsedTimer()
+                scheduleHealthCheckTimer()
+                refreshTimeLeft()
+                updateButton()
+                return
+            } catch {
+                if Task.isCancelled || !shouldMaintainConnection {
+                    return
+                }
+                switch ReconnectPolicy.disposition(for: error, attempt: attempt) {
+                case .stop(let reason):
+                    shouldMaintainConnection = false
+                    lastFatalReconnectError = reason
+                    reconnectTask = nil
+                    clearSession()
+                    notifyFatalReconnectFailure(reason)
+                    return
+                case .retry(let delay):
+                    attempt += 1
+                    let sleepSeconds: TimeInterval
+                    if let deadline = disconnectDeadline {
+                        sleepSeconds = min(delay, max(0, deadline.timeIntervalSinceNow))
+                    } else {
+                        sleepSeconds = delay
+                    }
+                    if sleepSeconds > 0 {
+                        try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
+                    }
+                }
+            }
+        }
+    }
+
+    private func cancelPendingReconnect() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+    }
+
+    private func handleSystemWake() {
+        guard shouldMaintainConnection, store.autoReconnect else { return }
+        if state == .connected {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                self?.performHealthCheck()
+            }
+        } else if case .reconnecting = state {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                guard let self, case .reconnecting = self.state else { return }
+                self.beginAutoReconnect()
             }
         }
     }
@@ -308,6 +553,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         disconnectDeadline = nil
         timerMenuItem = nil
         stopElapsedTimer()
+        stopHealthCheckTimer()
         timeLeft = nil
         updateButton()
     }
@@ -331,6 +577,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             disconnectDeadline = nil
             if state == .connected {
                 disconnectAction()
+            } else if case .reconnecting = state {
+                cancelReconnectAction()
             }
         } else {
             timerMenuItem?.title = disconnectTimerTitle()
@@ -383,7 +631,49 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         alert.addButton(withTitle: L10n.t(.discardSession))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertSecondButtonReturn {
+            shouldMaintainConnection = false
             clearSession()
+        }
+    }
+
+    private func notifyFatalReconnectFailure(_ reason: String) {
+        guard Bundle.main.bundleURL.pathExtension == "app" else {
+            showError("\(L10n.t(.reconnectFailedTitle))\n\n\(reason)")
+            return
+        }
+
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { [weak self] settings in
+            let deliver = {
+                let content = UNMutableNotificationContent()
+                content.title = L10n.t(.reconnectFailedTitle)
+                content.body = reason
+                let request = UNNotificationRequest(
+                    identifier: "com.nautaconnect.reconnect-stopped",
+                    content: content,
+                    trigger: nil
+                )
+                center.add(request)
+            }
+
+            switch settings.authorizationStatus {
+            case .authorized, .provisional:
+                deliver()
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                    if granted {
+                        deliver()
+                    } else {
+                        DispatchQueue.main.async {
+                            self?.showError("\(L10n.t(.reconnectFailedTitle))\n\n\(reason)")
+                        }
+                    }
+                }
+            default:
+                DispatchQueue.main.async {
+                    self?.showError("\(L10n.t(.reconnectFailedTitle))\n\n\(reason)")
+                }
+            }
         }
     }
 }

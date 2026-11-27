@@ -60,6 +60,12 @@ public enum L10n {
         case minutesUnit
         case hourUnit
         case hoursUnit
+        case autoReconnect
+        case autoReconnectInterval
+        case secondsShort
+        case statusReconnecting
+        case cancelReconnect
+        case reconnectFailedTitle
     }
 
     public static func t(_ key: Key) -> String {
@@ -105,6 +111,12 @@ public enum L10n {
             .minutesUnit: "min",
             .hourUnit: "hour",
             .hoursUnit: "hours",
+            .autoReconnect: "Auto-reconnect",
+            .autoReconnectInterval: "Check every:",
+            .secondsShort: "s",
+            .statusReconnecting: "Reconnecting…",
+            .cancelReconnect: "Cancel reconnection",
+            .reconnectFailedTitle: "Auto-reconnect stopped",
         ],
         .spanish: [
             .statusConnected: "Conectado",
@@ -144,6 +156,12 @@ public enum L10n {
             .minutesUnit: "min",
             .hourUnit: "hora",
             .hoursUnit: "horas",
+            .autoReconnect: "Reconectar automáticamente",
+            .autoReconnectInterval: "Comprobar cada:",
+            .secondsShort: "s",
+            .statusReconnecting: "Reconectando…",
+            .cancelReconnect: "Cancelar reconexión",
+            .reconnectFailedTitle: "Reconexión automática detenida",
         ],
     ]
 }

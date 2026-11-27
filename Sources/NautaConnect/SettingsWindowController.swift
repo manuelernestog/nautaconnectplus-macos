@@ -11,11 +11,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let languagePopup = NSPopUpButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let showTimeInMenuBarCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let autoReconnectCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let intervalLabel = NSTextField(labelWithString: "")
+    private let intervalPopup = NSPopUpButton()
     private let store = SessionStore.shared
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 215),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 275),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -47,6 +50,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         showTimeInMenuBarCheckbox.title = L10n.t(.showTimeInMenuBar)
 
+        autoReconnectCheckbox.title = L10n.t(.autoReconnect)
+        autoReconnectCheckbox.target = self
+        autoReconnectCheckbox.action = #selector(autoReconnectToggled)
+
+        intervalLabel.stringValue = L10n.t(.autoReconnectInterval)
+        intervalLabel.alignment = .right
+        intervalPopup.addItems(withTitles: ReconnectPolicy.supportedIntervals.map(formatIntervalTitle))
+
         let saveButton = NSButton(title: L10n.t(.save), target: self, action: #selector(save))
         saveButton.bezelStyle = .rounded
         saveButton.keyEquivalent = "\r"
@@ -57,6 +68,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             [languageLabel, languagePopup],
             [NSGridCell.emptyContentView, launchAtLoginCheckbox],
             [NSGridCell.emptyContentView, showTimeInMenuBarCheckbox],
+            [NSGridCell.emptyContentView, autoReconnectCheckbox],
+            [intervalLabel, intervalPopup],
             [NSGridCell.emptyContentView, saveButton],
         ])
         grid.rowSpacing = 10
@@ -92,6 +105,27 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             launchAtLoginCheckbox.state = SMAppService.mainApp.status == .enabled ? .on : .off
         }
         showTimeInMenuBarCheckbox.state = store.showTimeInMenuBar ? .on : .off
+        autoReconnectCheckbox.state = store.autoReconnect ? .on : .off
+        let intervalIndex = ReconnectPolicy.supportedIntervals.firstIndex(of: store.autoReconnectIntervalSeconds) ?? 1
+        intervalPopup.selectItem(at: intervalIndex)
+        updateIntervalControlState()
+    }
+
+    @objc private func autoReconnectToggled() {
+        updateIntervalControlState()
+    }
+
+    private func updateIntervalControlState() {
+        let enabled = autoReconnectCheckbox.state == .on
+        intervalPopup.isEnabled = enabled
+        intervalLabel.textColor = enabled ? .labelColor : .secondaryLabelColor
+    }
+
+    private func formatIntervalTitle(_ seconds: Int) -> String {
+        if seconds < 60 {
+            return "\(seconds) \(L10n.t(.secondsShort))"
+        }
+        return "\(seconds / 60) \(L10n.t(.minutesUnit))"
     }
 
     @objc private func save() {
@@ -105,6 +139,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         store.language = language
         L10n.language = language
         store.showTimeInMenuBar = showTimeInMenuBarCheckbox.state == .on
+        store.autoReconnect = autoReconnectCheckbox.state == .on
+        let selectedIntervalIndex = intervalPopup.indexOfSelectedItem
+        if ReconnectPolicy.supportedIntervals.indices.contains(selectedIntervalIndex) {
+            store.autoReconnectIntervalSeconds = ReconnectPolicy.supportedIntervals[selectedIntervalIndex]
+        }
 
         if #available(macOS 13.0, *) {
             // Best effort: registration fails outside a proper .app bundle (e.g. swift run).
