@@ -1,10 +1,11 @@
 import AppKit
 import NautaConnectCore
 
-final class AddAccountWindowController: NSWindowController {
+final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate {
     var onAdd: (() -> Void)?
     private let usernameField = NSTextField()
     private let passwordField = NSSecureTextField()
+    private let saveButton = NSButton()
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private let formStack = NSStackView()
 
@@ -16,7 +17,13 @@ final class AddAccountWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         usernameField.placeholderString = L10n.t(.usernamePlaceholder)
         errorLabel.textColor = .systemRed
-        let save = NSButton(title: L10n.t(.save), target: self, action: #selector(saveAccount))
+        usernameField.delegate = self
+        passwordField.delegate = self
+        let save = saveButton
+        save.title = L10n.t(.save)
+        save.target = self
+        save.action = #selector(saveAccount)
+        save.isEnabled = false
         save.keyEquivalent = "\r"
         let cancel = NSButton(title: L10n.t(.cancel), target: self, action: #selector(cancelAdd))
         cancel.keyEquivalent = "\u{1b}"
@@ -51,6 +58,9 @@ final class AddAccountWindowController: NSWindowController {
     }
 
     @objc private func saveAccount() {
+        guard AccountFormValidation.canSave(username: usernameField.stringValue, password: passwordField.stringValue) else {
+            return
+        }
         do {
             try AccountManager(store: .shared).add(username: usernameField.stringValue, password: passwordField.stringValue)
             onAdd?()
@@ -63,6 +73,12 @@ final class AddAccountWindowController: NSWindowController {
             }
             resizeToFitContent()
         }
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        saveButton.isEnabled = AccountFormValidation.canSave(
+            username: usernameField.stringValue, password: passwordField.stringValue
+        )
     }
 
     private func resizeToFitContent() {

@@ -43,6 +43,8 @@ Building from source, the portal protocol, architecture and everything technical
 
 Add accounts from **Settings… → + Add account**. Settings lists your saved usernames;
 passwords stay in Keychain. Your existing account is kept automatically.
+**Save** is enabled only for an address ending in `@nauta.com.cu` or
+`@nauta.co.cu` with a nonempty password.
 
 With one account, **Connect** remains a one-click action. With multiple accounts,
 **Connect** opens a submenu listing them, followed by **+ Add account**, which opens
