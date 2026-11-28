@@ -1,0 +1,82 @@
+import AppKit
+import NautaConnectCore
+
+final class AddAccountWindowController: NSWindowController {
+    var onAdd: (() -> Void)?
+    private let usernameField = NSTextField()
+    private let passwordField = NSSecureTextField()
+    private let errorLabel = NSTextField(wrappingLabelWithString: "")
+    private let formStack = NSStackView()
+
+    convenience init() {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 210),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        self.init(window: window)
+        window.title = L10n.t(.addAccountTitle)
+        window.isReleasedWhenClosed = false
+        usernameField.placeholderString = L10n.t(.usernamePlaceholder)
+        errorLabel.textColor = .systemRed
+        let save = NSButton(title: L10n.t(.save), target: self, action: #selector(saveAccount))
+        save.keyEquivalent = "\r"
+        let cancel = NSButton(title: L10n.t(.cancel), target: self, action: #selector(cancelAdd))
+        cancel.keyEquivalent = "\u{1b}"
+        let buttons = NSStackView()
+        buttons.distribution = .gravityAreas
+        buttons.setViews([cancel, save], in: .trailing)
+        let grid = NSGridView(views: [
+            [NSTextField(labelWithString: L10n.t(.usernameLabel)), usernameField],
+            [NSTextField(labelWithString: L10n.t(.passwordLabel)), passwordField],
+        ])
+        grid.columnSpacing = 8
+        grid.rowSpacing = 12
+        let stack = formStack
+        stack.orientation = .vertical
+        stack.setViews([grid, errorLabel, buttons], in: .top)
+        stack.alignment = .leading
+        stack.spacing = 14
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let content = window.contentView!
+        content.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
+            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            grid.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            errorLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            buttons.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+        ])
+        usernameField.nextKeyView = passwordField
+        window.initialFirstResponder = usernameField
+        resizeToFitContent()
+    }
+
+    @objc private func saveAccount() {
+        do {
+            try AccountManager(store: .shared).add(username: usernameField.stringValue, password: passwordField.stringValue)
+            onAdd?()
+            finish()
+        } catch {
+            switch error {
+            case AccountError.duplicate: errorLabel.stringValue = L10n.t(.duplicateAccount)
+            case AccountError.keychainFailure: errorLabel.stringValue = L10n.t(.keychainFailure)
+            default: errorLabel.stringValue = L10n.t(.missingCredentials)
+            }
+            resizeToFitContent()
+        }
+    }
+
+    private func resizeToFitContent() {
+        guard let window, let content = window.contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        window.setContentSize(NSSize(width: content.bounds.width, height: formStack.fittingSize.height + 40))
+    }
+
+    @objc private func cancelAdd() { finish() }
+
+    private func finish() {
+        passwordField.stringValue = ""
+        guard let window else { return }
+        window.sheetParent?.endSheet(window)
+        close()
+    }
+}

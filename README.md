@@ -35,9 +35,20 @@ If you use the internet in Cuba, you know the ritual: open the ETECSA captive po
 
 1. Grab the latest `NautaConnectPlus.app` from [Releases](../../releases) *(or build it yourself in two commands — see [SPECS.md](SPECS.md))*.
 2. Drop it into `/Applications`.
-3. Click the icon in your menu bar, open **Settings…**, enter your `usuario@nauta.com.cu` credentials, done.
+3. Click the icon in your menu bar, open **Settings… → + Add account**, and save your `usuario@nauta.com.cu` credentials.
 
 Building from source, the portal protocol, architecture and everything technical lives in **[SPECS.md](SPECS.md)**.
+
+## Multiple accounts
+
+Add accounts from **Settings… → + Add account**. Settings lists your saved usernames;
+passwords stay in Keychain. Your existing account is kept automatically.
+
+With one account, **Connect** remains a one-click action. With multiple accounts,
+**Connect** opens a submenu listing them, followed by **+ Add account**, which opens
+the add-account sheet in Settings. Selecting another account while connected logs
+out the current account first, then connects the selected one. If logout fails,
+the app does not connect the other account. Only one account is connected at a time.
 
 ## Original & sister projects
 

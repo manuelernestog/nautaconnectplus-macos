@@ -2,12 +2,12 @@ import AppKit
 import NautaConnectCore
 import ServiceManagement
 
-/// Credentials + language + launch-at-login + menu bar preferences. Programmatic AppKit, no nibs.
-final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+/// Account management and application preferences.
+final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var onSave: (() -> Void)?
 
-    private let usernameField = NSTextField()
-    private let passwordField = NSSecureTextField()
+    private let accountTable = NSTableView()
+    private var accountEditor: AddAccountWindowController?
     private let languagePopup = NSPopUpButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let showTimeInMenuBarCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -18,7 +18,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 275),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -35,11 +35,20 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
         window.title = L10n.t(.settingsTitle)
 
-        let usernameLabel = label(L10n.t(.usernameLabel))
-        let passwordLabel = label(L10n.t(.passwordLabel))
         let languageLabel = label(L10n.t(.languageLabel))
 
-        usernameField.placeholderString = L10n.t(.usernamePlaceholder)
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("username"))
+        column.width = 270
+        accountTable.addTableColumn(column)
+        accountTable.headerView = nil
+        accountTable.dataSource = self
+        accountTable.delegate = self
+        accountTable.rowHeight = 24
+        let scroll = NSScrollView()
+        scroll.documentView = accountTable
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let add = NSButton(title: L10n.t(.addAccount), target: self, action: #selector(presentAddAccount))
         languagePopup.addItems(withTitles: Language.allCases.map(\.displayName))
 
         launchAtLoginCheckbox.title = L10n.t(.launchAtLogin)
@@ -63,8 +72,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         saveButton.keyEquivalent = "\r"
 
         let grid = NSGridView(views: [
-            [usernameLabel, usernameField],
-            [passwordLabel, passwordField],
+            [label(L10n.t(.accounts)), scroll],
+            [NSGridCell.emptyContentView, add],
             [languageLabel, languagePopup],
             [NSGridCell.emptyContentView, launchAtLoginCheckbox],
             [NSGridCell.emptyContentView, showTimeInMenuBarCheckbox],
@@ -84,7 +93,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             grid.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             grid.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             grid.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -20),
-            usernameField.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            scroll.heightAnchor.constraint(equalToConstant: 110),
+            scroll.widthAnchor.constraint(greaterThanOrEqualToConstant: 260),
         ])
     }
 
@@ -95,11 +105,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func loadValues() {
-        usernameField.stringValue = store.username
-        if !store.username.isEmpty,
-           let password = KeychainHelper.loadPassword(account: store.username) {
-            passwordField.stringValue = password
-        }
+        accountTable.reloadData()
         languagePopup.selectItem(at: Language.allCases.firstIndex(of: store.language) ?? 0)
         if #available(macOS 13.0, *) {
             launchAtLoginCheckbox.state = SMAppService.mainApp.status == .enabled ? .on : .off
@@ -129,12 +135,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func save() {
-        let username = usernameField.stringValue.trimmingCharacters(in: .whitespaces)
-        store.username = username
-        if !username.isEmpty, !passwordField.stringValue.isEmpty {
-            KeychainHelper.savePassword(passwordField.stringValue, account: username)
-        }
-
         let language = Language.allCases[languagePopup.indexOfSelectedItem]
         store.language = language
         L10n.language = language
@@ -164,7 +164,21 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         close()
     }
 
-    func windowWillClose(_ notification: Notification) {
-        passwordField.stringValue = ""
+    func numberOfRows(in tableView: NSTableView) -> Int { store.accounts.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        NSTextField(labelWithString: store.accounts[row])
+    }
+
+    @objc func presentAddAccount() {
+        guard let window, window.attachedSheet == nil else { return }
+        let editor = AddAccountWindowController()
+        editor.onAdd = { [weak self] in
+            self?.accountTable.reloadData()
+            self?.onSave?()
+        }
+        accountEditor = editor
+        guard let sheet = editor.window else { return }
+        window.beginSheet(sheet) { [weak self] _ in self?.accountEditor = nil }
     }
 }

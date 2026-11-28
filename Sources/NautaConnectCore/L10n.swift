@@ -27,6 +27,11 @@ public enum L10n {
         case statusDisconnected
         case statusNotOnNetwork
         case statusWorking
+        case accounts
+        case addAccount
+        case addAccountTitle
+        case duplicateAccount
+        case keychainFailure
         case connect
         case disconnect
         case timeLeft
@@ -78,6 +83,11 @@ public enum L10n {
             .statusDisconnected: "Disconnected",
             .statusNotOnNetwork: "Not on a Nauta network",
             .statusWorking: "Working…",
+            .accounts: "Accounts:",
+            .addAccount: "+ Add account",
+            .addAccountTitle: "Add account",
+            .duplicateAccount: "This account is already saved.",
+            .keychainFailure: "Could not save the password in Keychain. Try again.",
             .connect: "Connect",
             .disconnect: "Disconnect",
             .timeLeft: "Time left",
@@ -123,6 +133,11 @@ public enum L10n {
             .statusDisconnected: "Desconectado",
             .statusNotOnNetwork: "No estás en una red Nauta",
             .statusWorking: "Procesando…",
+            .accounts: "Cuentas:",
+            .addAccount: "+ Agregar cuenta",
+            .addAccountTitle: "Agregar cuenta",
+            .duplicateAccount: "Esta cuenta ya está guardada.",
+            .keychainFailure: "No se pudo guardar la contraseña en el Llavero. Inténtalo de nuevo.",
             .connect: "Conectar",
             .disconnect: "Desconectar",
             .timeLeft: "Tiempo disponible",
