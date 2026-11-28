@@ -68,6 +68,9 @@ final class AddAccountWindowController: NSWindowController, NSTextFieldDelegate,
             finish()
         } catch {
             switch error {
+            case let failure as KeychainSaveError:
+                errorLabel.stringValue = String(format: L10n.t(.keychainFailureDetails),
+                                               String(failure.status), failure.localizedDescription)
             case AccountError.duplicate: errorLabel.stringValue = L10n.t(.duplicateAccount)
             case AccountError.keychainFailure: errorLabel.stringValue = L10n.t(.keychainFailure)
             default: errorLabel.stringValue = L10n.t(.missingCredentials)

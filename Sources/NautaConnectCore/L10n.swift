@@ -38,6 +38,7 @@ public enum L10n {
         case addAccountTitle
         case duplicateAccount
         case keychainFailure
+        case keychainFailureDetails
         case connect
         case disconnect
         case timeLeft
@@ -102,6 +103,7 @@ public enum L10n {
             .addAccountTitle: "Add account",
             .duplicateAccount: "This account is already saved.",
             .keychainFailure: "Could not save the password in Keychain. Try again.",
+            .keychainFailureDetails: "Could not save the password in Keychain (code %@): %@",
             .connect: "Connect",
             .disconnect: "Disconnect",
             .timeLeft: "Time left",
@@ -160,6 +162,7 @@ public enum L10n {
             .addAccountTitle: "Agregar cuenta",
             .duplicateAccount: "Esta cuenta ya está guardada.",
             .keychainFailure: "No se pudo guardar la contraseña en el Llavero. Inténtalo de nuevo.",
+            .keychainFailureDetails: "No se pudo guardar la contraseña en el Llavero (código %@): %@",
             .connect: "Conectar",
             .disconnect: "Desconectar",
             .timeLeft: "Tiempo disponible",

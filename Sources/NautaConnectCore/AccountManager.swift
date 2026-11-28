@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 public enum AccountError: Error {
     case missingCredentials
@@ -11,13 +12,23 @@ public enum AccountError: Error {
 
 public final class AccountManager {
     private let store: SessionStore
-    private let savePassword: (String, String) -> Bool
+    private let savePassword: (String, String) throws -> Void
 
-    public init(store: SessionStore, savePassword: @escaping (String, String) -> Bool = {
-        KeychainHelper.savePassword($0, account: $1)
+    public init(store: SessionStore, savePassword: @escaping (String, String) -> Bool) {
+        self.store = store
+        self.savePassword = {
+            guard savePassword($0, $1) else { throw AccountError.keychainFailure }
+        }
+    }
+
+    public init(store: SessionStore, savePasswordStatus: @escaping (String, String) -> OSStatus = {
+        KeychainHelper.savePasswordStatus($0, account: $1)
     }) {
         self.store = store
-        self.savePassword = savePassword
+        self.savePassword = {
+            let status = savePasswordStatus($0, $1)
+            guard status == errSecSuccess else { throw KeychainSaveError(status: status) }
+        }
     }
 
     public func add(username: String, password: String) throws {
@@ -26,7 +37,7 @@ public final class AccountManager {
         guard !AccountFormValidation.isDuplicate(username: username, existingAccounts: store.accounts) else {
             throw AccountError.duplicate
         }
-        guard savePassword(password, username) else { throw AccountError.keychainFailure }
+        try savePassword(password, username)
         store.appendAccount(username)
     }
 

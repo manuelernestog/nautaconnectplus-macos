@@ -50,6 +50,8 @@ confirmation. An account in use cannot be deleted: disconnect it first.
 `@nauta.co.cu` with a nonempty password. Already saved emails cannot be added again;
 comparison ignores case and surrounding whitespace. Use the eye button to show or
 hide the password while entering it.
+Existing Keychain entries are updated without deleting the saved password first.
+If macOS rejects the save, the form includes the Keychain error code and description.
 
 With one account, **Connect** remains a one-click action. With multiple accounts,
 **Connect** opens a submenu listing them, followed by **+ Add account**, which opens
