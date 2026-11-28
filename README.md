@@ -35,9 +35,29 @@ If you use the internet in Cuba, you know the ritual: open the ETECSA captive po
 
 1. Grab the latest `NautaConnectPlus.app` from [Releases](../../releases) *(or build it yourself in two commands — see [SPECS.md](SPECS.md))*.
 2. Drop it into `/Applications`.
-3. Click the icon in your menu bar, open **Settings…**, enter your `usuario@nauta.com.cu` credentials, done.
+3. Click the icon in your menu bar, open **Settings… → + Add account**, and save your `usuario@nauta.com.cu` credentials.
 
 Building from source, the portal protocol, architecture and everything technical lives in **[SPECS.md](SPECS.md)**.
+
+## Multiple accounts
+
+Add accounts from **Settings… → + Add account**. Settings lists your saved usernames;
+passwords stay in Keychain. Your existing account is kept automatically.
+Use the trash icon beside an account to remove it and its saved password after
+confirmation. An account in use cannot be deleted: disconnect it first.
+
+**Save** is enabled only for an address ending in `@nauta.com.cu` or
+`@nauta.co.cu` with a nonempty password. Already saved emails cannot be added again;
+comparison ignores case and surrounding whitespace. Use the eye button to show or
+hide the password while entering it.
+Existing Keychain entries are updated without deleting the saved password first.
+If macOS rejects the save, the form includes the Keychain error code and description.
+
+With one account, **Connect** remains a one-click action. With multiple accounts,
+**Connect** opens a submenu listing them, followed by **+ Add account**, which opens
+the add-account sheet in Settings. Selecting another account while connected logs
+out the current account first, then connects the selected one. If logout fails,
+the app does not connect the other account. Only one account is connected at a time.
 
 ## Original & sister projects
 

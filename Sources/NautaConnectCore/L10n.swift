@@ -27,6 +27,18 @@ public enum L10n {
         case statusDisconnected
         case statusNotOnNetwork
         case statusWorking
+        case deleteAccount
+        case deleteAccountConfirmation
+        case deleteAccountFailed
+        case accountInUseTitle
+        case accountInUseMessage
+        case ok
+        case accounts
+        case addAccount
+        case addAccountTitle
+        case duplicateAccount
+        case keychainFailure
+        case keychainFailureDetails
         case connect
         case disconnect
         case timeLeft
@@ -38,6 +50,8 @@ public enum L10n {
         case usernameLabel
         case usernamePlaceholder
         case passwordLabel
+        case showPassword
+        case hidePassword
         case languageLabel
         case launchAtLogin
         case showTimeInMenuBar
@@ -78,6 +92,18 @@ public enum L10n {
             .statusDisconnected: "Disconnected",
             .statusNotOnNetwork: "Not on a Nauta network",
             .statusWorking: "Working…",
+            .deleteAccount: "Delete account",
+            .deleteAccountConfirmation: "Delete “%@” and its saved password from this Mac?",
+            .deleteAccountFailed: "Could not remove the password from Keychain. The account was not deleted.",
+            .accountInUseTitle: "Account in use",
+            .accountInUseMessage: "The account you want to delete is in use. Disconnect it before deleting it.",
+            .ok: "OK",
+            .accounts: "Accounts:",
+            .addAccount: "+ Add account",
+            .addAccountTitle: "Add account",
+            .duplicateAccount: "This account is already saved.",
+            .keychainFailure: "Could not save the password in Keychain. Try again.",
+            .keychainFailureDetails: "Could not save the password in Keychain (code %@): %@",
             .connect: "Connect",
             .disconnect: "Disconnect",
             .timeLeft: "Time left",
@@ -89,6 +115,8 @@ public enum L10n {
             .usernameLabel: "Username:",
             .usernamePlaceholder: "user@nauta.com.cu",
             .passwordLabel: "Password:",
+            .showPassword: "Show password",
+            .hidePassword: "Hide password",
             .languageLabel: "Language:",
             .launchAtLogin: "Launch at login",
             .showTimeInMenuBar: "Show time in menu bar",
@@ -123,6 +151,18 @@ public enum L10n {
             .statusDisconnected: "Desconectado",
             .statusNotOnNetwork: "No estás en una red Nauta",
             .statusWorking: "Procesando…",
+            .deleteAccount: "Eliminar cuenta",
+            .deleteAccountConfirmation: "¿Eliminar “%@” y su contraseña guardada de este Mac?",
+            .deleteAccountFailed: "No se pudo eliminar la contraseña del Llavero. La cuenta no se ha eliminado.",
+            .accountInUseTitle: "Cuenta en uso",
+            .accountInUseMessage: "La cuenta que quieres eliminar está en uso. Para eliminarla, debes desconectarte primero.",
+            .ok: "Aceptar",
+            .accounts: "Cuentas:",
+            .addAccount: "+ Agregar cuenta",
+            .addAccountTitle: "Agregar cuenta",
+            .duplicateAccount: "Esta cuenta ya está guardada.",
+            .keychainFailure: "No se pudo guardar la contraseña en el Llavero. Inténtalo de nuevo.",
+            .keychainFailureDetails: "No se pudo guardar la contraseña en el Llavero (código %@): %@",
             .connect: "Conectar",
             .disconnect: "Desconectar",
             .timeLeft: "Tiempo disponible",
@@ -134,6 +174,8 @@ public enum L10n {
             .usernameLabel: "Usuario:",
             .usernamePlaceholder: "usuario@nauta.com.cu",
             .passwordLabel: "Contraseña:",
+            .showPassword: "Mostrar contraseña",
+            .hidePassword: "Ocultar contraseña",
             .languageLabel: "Idioma:",
             .launchAtLogin: "Abrir al iniciar sesión",
             .showTimeInMenuBar: "Mostrar tiempo en la barra de menú",

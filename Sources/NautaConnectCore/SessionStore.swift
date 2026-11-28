@@ -9,6 +9,7 @@ public final class SessionStore {
     private enum Keys {
         static let session = "portalSession"
         static let username = "username"
+        static let accounts = "accounts"
         static let language = "language"
         static let showTimeInMenuBar = "showTimeInMenuBar"
         static let autoReconnect = "autoReconnect"
@@ -40,6 +41,21 @@ public final class SessionStore {
     public var username: String {
         get { defaults.string(forKey: Keys.username) ?? "" }
         set { defaults.set(newValue, forKey: Keys.username) }
+    }
+
+    public var accounts: [String] {
+        defaults.stringArray(forKey: Keys.accounts) ?? (username.isEmpty ? [] : [username])
+    }
+
+    func appendAccount(_ username: String) {
+        defaults.set(accounts + [username], forKey: Keys.accounts)
+        if self.username.isEmpty { self.username = username }
+    }
+
+    func removeAccount(_ username: String) {
+        let remaining = accounts.filter { $0 != username }
+        defaults.set(remaining, forKey: Keys.accounts)
+        if self.username == username { self.username = remaining.first ?? "" }
     }
 
     public var language: Language {

@@ -16,7 +16,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let client = PortalClient()
     private let store = SessionStore.shared
+    @MainActor private lazy var accountConnector = AccountConnector(
+        store: store,
+        login: { [client] in try await client.login(username: $0, password: $1) },
+        logout: { [client] in try await client.logout($0) }
+    )
     private var settingsController: SettingsWindowController?
+    private var accountOperations: [UUID: String] = [:]
 
     private var state: State = .disconnected
     private var timeLeft: String?
@@ -52,7 +58,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         // Restore a session persisted by a previous run, then verify it is still live.
         // Never auto-reconnect on launch if the server session already expired while the app was closed.
-        if store.session != nil {
+        if let session = store.session {
+            store.username = session.username
             state = .connected
             startElapsedTimer()
             validateRestoredSession()
@@ -85,8 +92,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         switch state {
         case .disconnected:
-            menu.addItem(makeItem(L10n.t(.connect), action: #selector(connectAction), key: "c"))
+            menu.addItem(connectMenuItem())
         case .connected:
+            if store.accounts.count > 1 { menu.addItem(connectMenuItem()) }
             menu.addItem(makeItem(L10n.t(.disconnect), action: #selector(disconnectAction), key: "d"))
             let timerItem = makeDisconnectTimerItem()
             timerMenuItem = timerItem
@@ -101,6 +109,35 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(makeItem(L10n.t(.settings), action: #selector(openSettings), key: ","))
         menu.addItem(.separator())
         menu.addItem(makeItem(L10n.t(.quit), action: #selector(quit), key: "q"))
+    }
+
+    private func connectMenuItem() -> NSMenuItem {
+        let item = makeItem(L10n.t(.connect), action: #selector(connectAction), key: "c")
+        guard store.accounts.count > 1 else { return item }
+        item.action = nil
+        item.keyEquivalent = ""
+        let submenu = NSMenu()
+        for username in store.accounts {
+            let account = makeItem(username, action: #selector(selectAccount(_:)))
+            account.representedObject = username
+            account.state = store.session?.username == username ? .on : .off
+            submenu.addItem(account)
+        }
+        submenu.addItem(.separator())
+        submenu.addItem(makeItem(L10n.t(.addAccount), action: #selector(addAccountAction)))
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func selectAccount(_ sender: NSMenuItem) {
+        guard let username = sender.representedObject as? String,
+              store.accounts.contains(username) else { return }
+        connect(username: username)
+    }
+
+    @objc private func addAccountAction() {
+        openSettings()
+        settingsController?.presentAddAccount()
     }
 
     private func statusLine() -> String {
@@ -169,7 +206,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func connectAction() {
-        let username = store.username
+        if store.accounts.isEmpty {
+            addAccountAction()
+        } else {
+            connect(username: store.username)
+        }
+    }
+
+    private func connect(username: String) {
+        guard state == .disconnected || state == .connected else { return }
+        if store.session?.username == username { return }
         guard !username.isEmpty,
               let password = KeychainHelper.loadPassword(account: username), !password.isEmpty else {
             showError(L10n.t(.missingCredentials))
@@ -177,21 +223,36 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return
         }
 
+        let operationID = UUID()
+        accountOperations[operationID] = username
+        let wasMaintaining = shouldMaintainConnection
+        shouldMaintainConnection = false
+        stopHealthCheckTimer()
+        stopElapsedTimer()
         lastFatalReconnectError = nil
-        state = .connecting
+        state = store.session == nil ? .connecting : .disconnecting
         updateButton()
         Task { @MainActor in
+            defer { accountOperations.removeValue(forKey: operationID) }
             do {
-                let session = try await client.login(username: username, password: password)
-                store.session = session
+                try await accountConnector.connect(username: username, password: password)
+                disconnectDeadline = nil
+                timerMenuItem = nil
+                timeLeft = nil
                 state = .connected
                 shouldMaintainConnection = true
                 startElapsedTimer()
                 scheduleHealthCheckTimer()
                 refreshTimeLeft()
+            } catch AccountError.logoutFailed(let error) {
+                state = .connected
+                shouldMaintainConnection = wasMaintaining
+                startElapsedTimer()
+                scheduleHealthCheckTimer()
+                showLogoutFailure(error.localizedDescription)
             } catch {
-                state = .disconnected
                 shouldMaintainConnection = false
+                clearSession()
                 showError(error.localizedDescription)
             }
             updateButton()
@@ -199,6 +260,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func disconnectAction() {
+        guard state == .connected else { return }
         shouldMaintainConnection = false
         cancelPendingReconnect()
         stopHealthCheckTimer()
@@ -323,6 +385,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func openSettings() {
         if settingsController == nil || settingsController?.window?.isVisible != true {
             let controller = SettingsWindowController()
+            controller.isAccountInUse = { [weak self] username in
+                guard let self else { return true }
+                return self.store.session?.username == username
+                    || self.accountOperations.values.contains(username)
+                    || (self.state != .disconnected && self.store.username == username)
+            }
             controller.onSave = { [weak self] in
                 self?.handleSettingsSaved()
             }
@@ -359,7 +427,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func validateRestoredSession() {
         guard let session = store.session else { return }
         Task { @MainActor in
-            switch await client.validateSession(session) {
+            let result = await client.validateSession(session)
+            guard state == .connected, store.session == session else { return }
+            switch result {
             case .active(let time):
                 timeLeft = time
                 if state == .connected && store.session == session {
@@ -379,7 +449,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func refreshTimeLeft() {
         guard let session = store.session else { return }
         Task { @MainActor in
-            switch await client.validateSession(session) {
+            let result = await client.validateSession(session)
+            guard state == .connected, store.session == session else { return }
+            switch result {
             case .active(let time):
                 timeLeft = time
             case .expired:
@@ -454,8 +526,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         state = .reconnecting(attempt: 1)
         updateButton()
 
+        let operationID = UUID()
+        accountOperations[operationID] = store.username
         reconnectTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.accountOperations.removeValue(forKey: operationID) }
             await self.runReconnectLoop()
         }
     }

@@ -2,12 +2,13 @@ import AppKit
 import NautaConnectCore
 import ServiceManagement
 
-/// Credentials + language + launch-at-login + menu bar preferences. Programmatic AppKit, no nibs.
-final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+/// Account management and application preferences.
+final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     var onSave: (() -> Void)?
+    var isAccountInUse: (String) -> Bool = { SessionStore.shared.session?.username == $0 }
 
-    private let usernameField = NSTextField()
-    private let passwordField = NSSecureTextField()
+    private let accountTable = NSTableView()
+    private var accountEditor: AddAccountWindowController?
     private let languagePopup = NSPopUpButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let showTimeInMenuBarCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -18,7 +19,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 275),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -35,11 +36,22 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
         window.title = L10n.t(.settingsTitle)
 
-        let usernameLabel = label(L10n.t(.usernameLabel))
-        let passwordLabel = label(L10n.t(.passwordLabel))
         let languageLabel = label(L10n.t(.languageLabel))
 
-        usernameField.placeholderString = L10n.t(.usernamePlaceholder)
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("username"))
+        column.resizingMask = .autoresizingMask
+        accountTable.addTableColumn(column)
+        accountTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        accountTable.autoresizingMask = [.width]
+        accountTable.headerView = nil
+        accountTable.dataSource = self
+        accountTable.delegate = self
+        accountTable.rowHeight = 32
+        let scroll = NSScrollView()
+        scroll.documentView = accountTable
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let add = NSButton(title: L10n.t(.addAccount), target: self, action: #selector(presentAddAccount))
         languagePopup.addItems(withTitles: Language.allCases.map(\.displayName))
 
         launchAtLoginCheckbox.title = L10n.t(.launchAtLogin)
@@ -63,8 +75,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         saveButton.keyEquivalent = "\r"
 
         let grid = NSGridView(views: [
-            [usernameLabel, usernameField],
-            [passwordLabel, passwordField],
+            [label(L10n.t(.accounts)), add],
+            [NSGridCell.emptyContentView, scroll],
             [languageLabel, languagePopup],
             [NSGridCell.emptyContentView, launchAtLoginCheckbox],
             [NSGridCell.emptyContentView, showTimeInMenuBarCheckbox],
@@ -75,6 +87,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         grid.rowSpacing = 10
         grid.columnSpacing = 8
         grid.column(at: 0).xPlacement = .trailing
+        grid.row(at: 0).yPlacement = .center
         grid.translatesAutoresizingMaskIntoConstraints = false
 
         let content = window.contentView!
@@ -84,7 +97,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             grid.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             grid.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             grid.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -20),
-            usernameField.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            scroll.heightAnchor.constraint(equalToConstant: 110),
+            scroll.widthAnchor.constraint(greaterThanOrEqualToConstant: 260),
         ])
     }
 
@@ -95,11 +109,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func loadValues() {
-        usernameField.stringValue = store.username
-        if !store.username.isEmpty,
-           let password = KeychainHelper.loadPassword(account: store.username) {
-            passwordField.stringValue = password
-        }
+        accountTable.reloadData()
         languagePopup.selectItem(at: Language.allCases.firstIndex(of: store.language) ?? 0)
         if #available(macOS 13.0, *) {
             launchAtLoginCheckbox.state = SMAppService.mainApp.status == .enabled ? .on : .off
@@ -129,12 +139,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func save() {
-        let username = usernameField.stringValue.trimmingCharacters(in: .whitespaces)
-        store.username = username
-        if !username.isEmpty, !passwordField.stringValue.isEmpty {
-            KeychainHelper.savePassword(passwordField.stringValue, account: username)
-        }
-
         let language = Language.allCases[languagePopup.indexOfSelectedItem]
         store.language = language
         L10n.language = language
@@ -164,7 +168,58 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         close()
     }
 
-    func windowWillClose(_ notification: Notification) {
-        passwordField.stringValue = ""
+    func numberOfRows(in tableView: NSTableView) -> Int { store.accounts.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let username = store.accounts[row]
+        return AccountRowView(username: username) { [weak self] in self?.deleteAccount(username: username) }
+    }
+
+    private func deleteAccount(username: String) {
+        guard let window, window.attachedSheet == nil else { return }
+        guard !isAccountInUse(username) else {
+            showAccountError(title: .accountInUseTitle, message: .accountInUseMessage)
+            return
+        }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.t(.deleteAccount)
+        alert.informativeText = String(format: L10n.t(.deleteAccountConfirmation), username)
+        alert.addButton(withTitle: L10n.t(.deleteAccount))
+        alert.addButton(withTitle: L10n.t(.cancel))
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn else { return }
+            do {
+                try AccountManager(store: self.store).remove(username: username, isInUse: self.isAccountInUse(username))
+                self.accountTable.reloadData()
+                self.onSave?()
+            } catch AccountError.accountInUse {
+                self.showAccountError(title: .accountInUseTitle, message: .accountInUseMessage)
+            } catch {
+                self.showAccountError(title: .errorTitle, message: .deleteAccountFailed)
+            }
+        }
+    }
+
+    private func showAccountError(title: L10n.Key, message: L10n.Key) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.t(title)
+        alert.informativeText = L10n.t(message)
+        alert.addButton(withTitle: L10n.t(.ok))
+        alert.beginSheetModal(for: window)
+    }
+
+    @objc func presentAddAccount() {
+        guard let window, window.attachedSheet == nil else { return }
+        let editor = AddAccountWindowController()
+        editor.onAdd = { [weak self] in
+            self?.accountTable.reloadData()
+            self?.onSave?()
+        }
+        accountEditor = editor
+        guard let sheet = editor.window else { return }
+        window.beginSheet(sheet) { [weak self] _ in self?.accountEditor = nil }
     }
 }
