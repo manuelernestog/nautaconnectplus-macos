@@ -40,16 +40,14 @@ final class DirectPortalTransportTests: XCTestCase {
     }
 
     func testDecodesChunkedResponse() throws {
-        let raw = Data(
-            (
-                "HTTP/1.1 200 OK\r\n" +
-                "Transfer-Encoding: chunked\r\n" +
-                "\r\n" +
-                "5\r\nhello\r\n" +
-                "6\r\n world\r\n" +
-                "0\r\n\r\n"
-            ).utf8
-        )
+        let responseText: String =
+            "HTTP/1.1 200 OK\r\n" +
+            "Transfer-Encoding: chunked\r\n" +
+            "\r\n" +
+            "5\r\nhello\r\n" +
+            "6\r\n world\r\n" +
+            "0\r\n\r\n"
+        let raw = Data(responseText.utf8)
         let response = try XCTUnwrap(HTTPWireCodec.parseResponse(from: raw))
         XCTAssertEqual(String(decoding: response.body, as: UTF8.self), "hello world")
     }
